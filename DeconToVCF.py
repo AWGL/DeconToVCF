@@ -3,18 +3,20 @@ import os
 from copy import deepcopy
 import csv
 import datetime
+import argparse
 
 
 """
-script to convert DeCon output to VCF style template for further analysis.
-Activate conda environment and run script from within the DeCon output folder
+Python script to convert DeCon output to VCF style template for further analysis.
+Run script and give pathway to decon output folder (-d), ped file (-p), and output file (-o)
 Author: Kalon Grimes
 
 """
 
 
-# set variables for GT
 """
+# set variables for GT
+
 code copy:
 if float(ratio) < low_gt:
 	gt_list.append('0/0')
@@ -23,26 +25,25 @@ elif low_gt <= float(ratio) < mid_gt:
 elif mid_gt <= float(ratio) < high_gt:
 	gt_list.append('1/1')
 else:
-	gt_list.append('9/9')
-
+	gt_list.append('0/1')
 """
 low_gt = 0.4
 mid_gt = 0.7
 high_gt = 1.3
 
 
-# set variables for CN
 """
+Set variables for CN
+
 code copy:
 if float(rr) < low_cn:
-	cn = "0"
+	cn = '0'
 elif low_cn <= float(rr) < mid_cn:
-	cn = "1"
+	cn = '1'
 elif mid_cn <= float(rr) < high_cn:
-	cn = "2"
+	cn = '2'
 else:
-	cn = "3"
-
+	cn = '3'
 """
 low_cn = 0.4
 mid_cn = 0.7
@@ -50,28 +51,26 @@ high_cn = 1.3
 
 
 
-def get_CNV_table(path):
+def get_CNV_table(raw_data_path):
 	"""
 	function to get CNVs reported seperately in the raw_data files, and put them into one
 	dataframe which is filtered to take one GenomicsID per sampleID. If more than one CNV exists
 	for a GenomicID region then the table selects the highest read quality (BF value)
 	gt variables are defined at start of main script
-	input: pathway to decon output which contains the "results" folder
+	input: pathway to decon output raw_data folder
 	output: filtered dataframe of GenomicsID-SampleID
 	"""
-
-	rawdata_folder = path + "/results/cnv_svs/raw_data/"
 
 	# create blank dataframe ready to append all the raw_data files into
 	full_df_headers = ['CNV.ID', 'Sample', 'Correlation', 'N.comp', 'Start.b', 'End.b', 'CNV.type', 'N.exons', 'Start', 'End', 'Chromosome', 'Genomic.ID', 'BF', 'Reads.expected', 'Reads.observed', 'Reads.ratio', 'Gene', 'Custom.first', 'Custom.last']
 	full_df = pd.DataFrame(columns = full_df_headers)
 
 	# iterate through all raw_data files and append them to full_df
-	file_list = os.listdir(rawdata_folder)
+	file_list = os.listdir(raw_data_path)
 
 	for file in file_list:
-		if file[-7:] == "all.txt":
-			df1 = pd.read_csv(rawdata_folder + file,sep = "\t")
+		if file[-7:] == 'all.txt':
+			df1 = pd.read_csv(os.path.join(raw_data_path,file), sep = '\t')
 			full_df = full_df.append(df1, ignore_index = True)
 
 	# dedup across Sample, genomicID, CNV.type, and then take highest BF.
@@ -100,7 +99,7 @@ def get_CNV_table(path):
 		elif mid_gt <= float(ratio) < high_gt:
 			gt_list.append('1/1')
 		else:
-			gt_list.append('9/9')
+			gt_list.append('0/1')
 
 	full_df['Genotype'] = gt_list
 
@@ -108,17 +107,12 @@ def get_CNV_table(path):
 
 
 
-def get_sampleIDs(path):
+def get_sampleIDs(pedfile_path):
 	"""
 	function to get a list of sampleIDs from the PED file
-	input: pathway to decon output which contains the "results" folder
+	input: pathway to pedfile
 	output: list of sampleIDs on the run
 	"""
-
-	# get ped filepath
-	ped_folder = cwd + "/results/ped/"
-	pedfile_name = os.listdir(ped_folder).pop()
-	pedfile_path = ped_folder + pedfile_name
 
 	# read ped file into dataframe and then convert column 2 into a list of sampleIDs
 	sampleID_df = pd.read_csv(pedfile_path, sep = "\t", names = [1,2,3,4,5,6])
@@ -155,9 +149,9 @@ def get_vcf_dict(CNV_table, sampleID_list):
 
 	# iterate through df and sample list to create dict template
 	for sampleID in sampleID_list:
-		sample_dict[sampleID] = ""
+		sample_dict[sampleID] = ''
 	# add meta option to sample_dict to add info later
-	sample_dict['meta'] = ""
+	sample_dict['meta'] = ''
 
 	for gen_id in CNV_table['Genomic.ID']:
 		# print(gen_id)
@@ -170,27 +164,27 @@ def get_vcf_dict(CNV_table, sampleID_list):
 				# print(sample)
 
 				# see if the sample listed in the CNV table is the one linked to the genomicID
-				if sample == (CNV_table.at[rownum, "sampleid"]):
+				if sample == (CNV_table.at[rownum, 'sampleid']):
 					# print("sample matched")
-					gt = CNV_table.at[rownum, "Genotype"]
-					bf = CNV_table.at[rownum, "BF"]
-					re = CNV_table.at[rownum, "Reads.expected"]
-					ro = CNV_table.at[rownum, "Reads.observed"]
-					rr = CNV_table.at[rownum, "Reads.ratio"]
+					gt = CNV_table.at[rownum, 'Genotype']
+					bf = CNV_table.at[rownum, 'BF']
+					re = CNV_table.at[rownum, 'Reads.expected']
+					ro = CNV_table.at[rownum, 'Reads.observed']
+					rr = CNV_table.at[rownum, 'Reads.ratio']
 					if float(rr) < low_cn:
-						cn = "0"
+						cn = '0'
 					elif low_cn <= float(rr) < mid_cn:
-						cn = "1"
+						cn = '1'
 					elif mid_cn <= float(rr) < high_cn:
-						cn = "2"
+						cn = '2'
 					else:
-						cn = "3"
-					vcf_dict[gen_id][sample] = f"{gt}:{bf}:{cn}:{re}:{ro}:{rr}"
+						cn = '3'
+					vcf_dict[gen_id][sample] = f'{gt}:{bf}:{cn}:{re}:{ro}:{rr}'
 
 				else:
 					# print("sample not matched")
-					if vcf_dict[gen_id][sample] == "":
-						vcf_dict[gen_id][sample] = "./.:.:.:.:."
+					if vcf_dict[gen_id][sample] == '':
+						vcf_dict[gen_id][sample] = './.:.:.:.:.'
 		else:
 			# new gen_id so need to add the sample_dict to it
 			# print("sample not in dict, adding now")
@@ -199,56 +193,56 @@ def get_vcf_dict(CNV_table, sampleID_list):
 				# print(sample)
 
 				# see if the sample is meta, then populate with meta that easily splittable
-				if sample == "meta":
+				if sample == 'meta':
 					# print("sample is meta")
 					gen_id_nochr = gen_id[3:]
-					chrom = CNV_table.at[rownum, "Chromosome"]
-					pos = CNV_table.at[rownum, "Start"]
-					end = CNV_table.at[rownum, "End"]
-					ref = "N"
+					chrom = CNV_table.at[rownum, 'Chromosome']
+					pos = CNV_table.at[rownum, 'Start']
+					end = CNV_table.at[rownum, 'End']
+					ref = 'N'
 					region_length = int(end) - int(pos)
 
-					if CNV_table.at[rownum, "CNV.type"] == "deletion":
-						alt = "<DEL>"
-						ID = f"LOSS:{gen_id_nochr}"
-						info = f"SVLEN=-{region_length};SVTYPE=CNV;END={end};REFLEN={region_length}"
-					elif CNV_table.at[rownum, "CNV.type"] == "duplication":
-						alt = "<DUP>"
-						ID = f"GAIN:{gen_id_nochr}"
-						info = f"SVLEN={region_length};SVTYPE=CNV;END={end};REFLEN={region_length}"
+					if CNV_table.at[rownum, 'CNV.type'] == 'deletion':
+						alt = '<DEL>'
+						ID = f'LOSS:{gen_id_nochr}'
+						info = f'SVLEN=-{region_length};SVTYPE=CNV;END={end};REFLEN={region_length}'
+					elif CNV_table.at[rownum, 'CNV.type'] == 'duplication':
+						alt = '<DUP>'
+						ID = f'GAIN:{gen_id_nochr}'
+						info = f'SVLEN={region_length};SVTYPE=CNV;END={end};REFLEN={region_length}'
 					else: 
-						alt = "<UNK>"
-						ID = f"UNK:{gen_id_nochr}"
-						info = f"SVLEN={region_length};SVTYPE=CNV;END={end};REFLEN={region_length}"
+						alt = '<UNK>'
+						ID = f'UNK:{gen_id_nochr}'
+						info = f'SVLEN={region_length};SVTYPE=CNV;END={end};REFLEN={region_length}'
 
-					qual = "."
-					filt = "PASS"					
-					form = "GT:BF:CN:RE:RO:RR"
-					vcf_dict[gen_id][sample] = f"{chrom},{pos},{ID},{ref},{alt},{qual},{filt},{info},{form}"
+					qual = '.'
+					filt = 'PASS'
+					form = 'GT:BF:CN:RE:RO:RR'
+					vcf_dict[gen_id][sample] = f'{chrom},{pos},{ID},{ref},{alt},{qual},{filt},{info},{form}'
 					# print(vcf_dict[gen_id][sample])
 
 				# see if the sample listed in the CNV table is the one linked to the genomicID	
-				elif sample == (CNV_table.at[rownum, "sampleid"]):
+				elif sample == (CNV_table.at[rownum, 'sampleid']):
 					# print("sample matched")
-					gt = CNV_table.at[rownum, "Genotype"]
-					bf = CNV_table.at[rownum, "BF"]
-					re = CNV_table.at[rownum, "Reads.expected"]
-					ro = CNV_table.at[rownum, "Reads.observed"]
-					rr = CNV_table.at[rownum, "Reads.ratio"]
+					gt = CNV_table.at[rownum, 'Genotype']
+					bf = CNV_table.at[rownum, 'BF']
+					re = CNV_table.at[rownum, 'Reads.expected']
+					ro = CNV_table.at[rownum, 'Reads.observed']
+					rr = CNV_table.at[rownum, 'Reads.ratio']
 					if float(rr) < low_cn:
-						cn = "0"
+						cn = '2'
 					elif low_cn <= float(rr) < mid_cn:
-						cn = "1"
+						cn = '2'
 					elif mid_cn <= float(rr) < high_cn:
-						cn = "2"
+						cn = '2'
 					else:
-						cn = "3"
-					vcf_dict[gen_id][sample] = f"{gt}:{bf}:{cn}:{re}:{ro}:{rr}"
+						cn = '3'
+					vcf_dict[gen_id][sample] = f'{gt}:{bf}:{cn}:{re}:{ro}:{rr}'
 
 				else:
 					# print("sample not matched")
-					if vcf_dict[gen_id][sample] == "":
-						vcf_dict[gen_id][sample] = "./.:.:.:.:."
+					if vcf_dict[gen_id][sample] == '':
+						vcf_dict[gen_id][sample] = './.:.:.:.:.'
 		rownum += 1
 
 	return vcf_dict
@@ -267,8 +261,8 @@ def get_export_list(vcf_dict,sampleID_list):
 	export_list = []
 
 	# create and export column header string
-	sampleID_string = ",".join(sampleID_list)
-	column_headers = f"#CHROM,POS,ID,REF,ALT,QUAL,FILTER,INFO,FORMAT,{sampleID_string}"
+	sampleID_string = ','.join(sampleID_list)
+	column_headers = f'#CHROM,POS,ID,REF,ALT,QUAL,FILTER,INFO,FORMAT,{sampleID_string}'
 	#print(column_headers)
 	export_list.append(column_headers)
 
@@ -276,9 +270,7 @@ def get_export_list(vcf_dict,sampleID_list):
 	for key in vcf_dict:
 
 		# reset line variable
-		line = ""
-		# print(key, vcf_dict[key])
-		# print(" ")
+		line = ''
 
 		# get meta information first
 		line = vcf_dict[key]['meta']
@@ -286,20 +278,15 @@ def get_export_list(vcf_dict,sampleID_list):
 		# get sample genotype field using specific sampleID callers not positionals (dict don't hold orders well)
 		for sample in sampleID_list:
 			genotype = vcf_dict[key][sample]
-			line += f",{genotype}"
-
-		#print(line)
+			line += f',{genotype}'
 
 		# append line to export_list
 		export_list.append(line)
 
-	#print('')
-	#print(export_list)
-
 	# convert csv to tab delim
 	tab_export_list = []
 	for line in export_list:
-		line = line.replace(",","\t")
+		line = line.replace(',','\t')
 		tab_export_list.append(line)
 
 	return tab_export_list
@@ -368,35 +355,40 @@ def get_vcf_header(run):
  ##			PROGRAMME CODE 			##
  #####################################
 
- # get current working directory (should be decon output path with results folder in)
-cwd = os.getcwd()
-#print(cwd)
+if __name__ == '__main__':
 
-# get table of all CNVs from DeCon output files.
-CNV_table = get_CNV_table(cwd)
-# print(CNV_table)
+ 	# args
+	parser = argparse.ArgumentParser()
+	parser.add_argument('--rawdata','-d', help = 'pathway to decon output directory eg: post-processing/results/cnv_svs/raw_data/')
+	parser.add_argument('--pedfile','-p', help = 'pathway to pedfile eg: post-processing/results/ped/<runid>.ped')
+	parser.add_argument('--outfile','-o', help = 'filename for output eg: <runid>_decon.vcf')
+	args = parser.parse_args()
 
-# get list of sampleIDs from PED files
-sampleID_list = get_sampleIDs(cwd)
-# print(sampleID_list)
+	# get table of all CNVs from DeCon output files.
+	CNV_table = get_CNV_table(args.rawdata)
+	# print(CNV_table)
 
-# get vcf dict format of all data
-vcf_dict = get_vcf_dict(CNV_table, sampleID_list)
-#print(vcf_dict)
+	# get list of sampleIDs from PED files
+	sampleID_list = get_sampleIDs(args.pedfile)
+	# print(sampleID_list)
 
-# get export table
-export_list = get_export_list(vcf_dict,sampleID_list)
+	# get vcf dict format of all data
+	vcf_dict = get_vcf_dict(CNV_table, sampleID_list)
+	#print(vcf_dict)
 
-# get runid information
-runID = CNV_table.at[1,"runID"]
-#print(runID)
+	# get export table
+	export_list = get_export_list(vcf_dict,sampleID_list)
 
-# get hard-coded VCFX header list
-vcf_header = get_vcf_header(runID)
+	# get runid information
+	runID = CNV_table.at[1,'runID']
+	#print(runID)
 
-# export information to file
-with open(f'{runID}_full_CNV_.cnv.vcf','w',newline='') as file:
-	for line in vcf_header:
-		file.write(line + "\n")
-	for line in export_list:
-		file.write(line + "\n")
+	# get hard-coded VCF header list
+	vcf_header = get_vcf_header(runID)
+
+	# export information to file
+	with open(args.outfile,'w',newline='') as file:
+		for line in vcf_header:
+			file.write(line + '\n')
+		for line in export_list:
+			file.write(line + '\n')
