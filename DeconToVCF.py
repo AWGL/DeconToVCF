@@ -73,6 +73,14 @@ def get_CNV_table(raw_data_path):
 			df1 = pd.read_csv(os.path.join(raw_data_path,file), sep = '\t')
 			full_df = full_df.append(df1, ignore_index = True)
 
+
+	#format CNV.type
+	full_df.loc[(full_df['CNV.type']) == 'deletion','CNV.type'] = '<DEL>'
+	full_df.loc[(full_df['CNV.type']) == 'duplication','CNV.type'] = '<DUP>'
+
+	# amend genomic.ID to contain CNV type too, to allow for scenarios where same genomicID has both a del and dup found
+	full_df['Genomic.ID'] = full_df['Genomic.ID'] + full_df['CNV.type']
+
 	# dedup across Sample, genomicID, CNV.type, and then take highest BF.
 	full_df.sort_values(by = ['Genomic.ID', 'Sample', 'CNV.type', 'BF'], ascending = [True, True, True, True])
 	full_df.drop_duplicates(subset = ['Genomic.ID', 'Sample', 'CNV.type'], inplace = True, ignore_index = True, keep = 'last')
@@ -102,6 +110,8 @@ def get_CNV_table(raw_data_path):
 			gt_list.append('0/1')
 
 	full_df['Genotype'] = gt_list
+
+	full_df.to_csv('full_df_test.csv')
 
 	return full_df
 
@@ -195,18 +205,19 @@ def get_vcf_dict(CNV_table, sampleID_list):
 				# see if the sample is meta, then populate with meta that easily splittable
 				if sample == 'meta':
 					# print("sample is meta")
-					gen_id_nochr = gen_id[3:]
+					gen_id_notype = gen_id[:-5]
+					gen_id_nochr = gen_id_notype[3:]
 					chrom = CNV_table.at[rownum, 'Chromosome']
 					pos = CNV_table.at[rownum, 'Start']
 					end = CNV_table.at[rownum, 'End']
 					ref = 'N'
 					region_length = int(end) - int(pos)
 
-					if CNV_table.at[rownum, 'CNV.type'] == 'deletion':
+					if CNV_table.at[rownum, 'CNV.type'] == '<DEL>':
 						alt = '<DEL>'
 						ID = f'LOSS:{gen_id_nochr}'
 						info = f'SVLEN=-{region_length};SVTYPE=CNV;END={end};REFLEN={region_length}'
-					elif CNV_table.at[rownum, 'CNV.type'] == 'duplication':
+					elif CNV_table.at[rownum, 'CNV.type'] == '<DUP>':
 						alt = '<DUP>'
 						ID = f'GAIN:{gen_id_nochr}'
 						info = f'SVLEN={region_length};SVTYPE=CNV;END={end};REFLEN={region_length}'
