@@ -11,19 +11,27 @@ git clone git@github.com:AWGL/DeconToVCF.git
 
 ## Requirements
 
-The python script needs to be copied to and run from within pipeline post-processing folder.
+The python script needs to be run with arguments
 
-The post-processing folder should contain a "Results" folder which contains:
-* "ped" folder containing "<runid>.ped" file
-* "cnv_svs/raw_data" folder containing multiple .txt reports of genomic variant data outputted from DeCon
+* -d = path to decon output directory. The directory should be the folder containing all of the decon outputs "raw_data".
+* -p = path to ped file.
+* -o = path and filename of choice for the output. The programme will not create directories that do not already exist.
 
 
 ## To run the programme
 
+* create environment from .yaml file and activate
 ```
-python DeconToVCF
+conda env create --file DeconToVCF.yaml
+conda activate DeconToVCF
 ```
 
-## Additional info
+* run programme with arguments
+```
+python DeconToVCF -d <path-to-decon-output-directory> -p <path-to-ped-file> -o <path/filename-for-output-file>
+```
+  eg:
+```
+python DeconToVCF -d /data/runid/post-processing/results/cnv_svs/raw_data/ -p post-processing/results/ped/file.ped -o post-processing/results/DeconToVCF_output.vcf
+```
 
-* Output will be a file within the directory named "<runid>_full_CNV.cnv.vcf"
