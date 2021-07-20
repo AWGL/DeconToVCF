@@ -1,0 +1,7 @@
+name: DeconToVCF
+channels:
+  - bioconda
+  - defaults
+dependencies:
+  - pandas=1.2.4=py39h2531618_0
+  - python=3.9.5=hdb3f193_3
