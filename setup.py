@@ -5,7 +5,7 @@ with open('README.md', 'r') as fh:
 
 setuptools.setup(
     name='decon2vcf',
-    version='1.0.0',
+    version='1.0.1',
     author='AWMGS',
     author_email='bioinformatics.team@nhs.wales.uk',
     description='Convert Decon Output to VCF format.',
@@ -13,7 +13,7 @@ setuptools.setup(
     long_description_content_type='text/markdown',
     url='https://github.com/AWGL/DeconToVCF',
     packages=setuptools.find_packages(),
-    scripts= ['Decon2VCF.py'],
+    scripts= ['DeconToVCF.py'],
     classifiers=[
         'Programming Language :: Python :: 3',
         'Operating System :: OS Independent',
