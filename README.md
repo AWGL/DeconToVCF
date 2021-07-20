@@ -2,7 +2,7 @@
 
 ## Introduction
 
-This is a tool to convert multiple DeCon .txt file outputs generated in pipelines into a single genomic VCF format file that can then be used for annotation software and further analysis tools.
+This is a tool to convert multiple DeCon .txt [1] file outputs generated in pipelines into a single genomic VCF format file that can then be used for annotation software and further analysis tools.
 
 ## Download the directory:
 ```
@@ -22,8 +22,7 @@ The python script needs to be run with arguments
 
 * create environment from .yaml file and activate
 ```
-conda env create --file DeconToVCF.yaml
-conda activate DeconToVCF
+pip install decon2vcf
 ```
 
 * run programme with arguments
@@ -35,3 +34,6 @@ python DeconToVCF -d <path-to-decon-output-directory> -p <path-to-ped-file> -o <
 python DeconToVCF -d /data/runid/post-processing/results/cnv_svs/raw_data/ -p post-processing/results/ped/file.ped -o post-processing/results/DeconToVCF_output.vcf
 ```
 
+## References
+
+[1] https://www.imm.ox.ac.uk/research/research-groups/lunter-group/lunter-group/decon-detection-of-exon-copy-number
