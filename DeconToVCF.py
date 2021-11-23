@@ -41,52 +41,61 @@ def get_CNV_table(raw_data_path, test_mode):
 			df1 = pd.read_csv(os.path.join(raw_data_path,file), sep = '\t')
 			full_df = full_df.append(df1, ignore_index = True)
 
-	#format CNV.type
-	full_df.loc[(full_df['CNV.type']) == 'deletion','CNV.type'] = '<DEL>'
-	full_df.loc[(full_df['CNV.type']) == 'duplication','CNV.type'] = '<DUP>'
+	# check if any all.txt files were found before proceeding
+	if len(full_df.index) > 0:
 
-	# amend genomic.ID to contain CNV type too, to allow for scenarios where same genomicID has both a del and dup found
-	full_df['Genomic.ID'] = full_df['Genomic.ID'] + full_df['CNV.type']
+		variantsfound = True
 
-	# dedup across Sample, genomicID, CNV.type, and then take highest BF.
-	full_df.sort_values(by = ['Genomic.ID', 'Sample', 'CNV.type', 'BF'], ascending = [True, True, True, True])
-	full_df.drop_duplicates(subset = ['Genomic.ID', 'Sample', 'CNV.type'], inplace = True, ignore_index = True, keep = 'last')
+		#format CNV.type
+		full_df.loc[(full_df['CNV.type']) == 'deletion','CNV.type'] = '<DEL>'
+		full_df.loc[(full_df['CNV.type']) == 'duplication','CNV.type'] = '<DUP>'
 
-	# seperate Sample column into two columns sampleID and runID
-	sampleid_list = []
-	runID_list = []
+		# amend genomic.ID to contain CNV type too, to allow for scenarios where same genomicID has both a del and dup found
+		full_df['Genomic.ID'] = full_df['Genomic.ID'] + full_df['CNV.type']
 
-	for sample in full_df['Sample']:
+		# dedup across Sample, genomicID, CNV.type, and then take highest BF.
+		full_df.sort_values(by = ['Genomic.ID', 'Sample', 'CNV.type', 'BF'], ascending = [True, True, True, True])
+		full_df.drop_duplicates(subset = ['Genomic.ID', 'Sample', 'CNV.type'], inplace = True, ignore_index = True, keep = 'last')
 
-		sampleid = sample.split('_')[4]
-		runIDlist = sample.split('_')[0:4]
-		runID = '_'.join(runIDlist)
-		sampleid_list.append(sampleid)
-		runID_list.append(runID)
+		# seperate Sample column into two columns sampleID and runID
+		sampleid_list = []
+		runID_list = []
 
-	full_df['sampleid'] = sampleid_list
-	full_df['runID'] = runID_list
+		for sample in full_df['Sample']:
 
-	# add genotype column based off of reads ratio values (to be decided in discussion)
-	gt_list = []
+			sampleid = sample.split('_')[4]
+			runIDlist = sample.split('_')[0:4]
+			runID = '_'.join(runIDlist)
+			sampleid_list.append(sampleid)
+			runID_list.append(runID)
 
-	for ratio in full_df['Reads.ratio']:
+		full_df['sampleid'] = sampleid_list
+		full_df['runID'] = runID_list
 
-		if float(ratio) < low_cn:
+		# add genotype column based off of reads ratio values (to be decided in discussion)
+		gt_list = []
 
-			gt_list.append('1/1')
+		for ratio in full_df['Reads.ratio']:
 
-		else:
+			if float(ratio) < low_cn:
 
-			gt_list.append('0/1')
+				gt_list.append('1/1')
 
-	full_df['Genotype'] = gt_list
+			else:
 
+				gt_list.append('0/1')
+
+		full_df['Genotype'] = gt_list
+
+	# if no all.txt found (no decon outputs) then return blank dataframe and variantsfound = False
+	else:
+		variantsfound = False
+		
 	if test_mode:
 
 		full_df.to_csv('full_df_test.csv')
 
-	return full_df
+	return full_df, variantsfound
 
 
 
@@ -313,16 +322,10 @@ def get_export_list(vcf_dict, sampleID_list):
 
 
 
-def get_vcf_header(run):
+def get_vcf_header():
 	"""
 	hard-coded vcf header returned as a list, uses runID to populate run info and date fields
 	"""
-
-	datestr = run.split('_')[0]
-	year = int(f'20{datestr[:2]}')
-	month = int(datestr[2:4])
-	day = int(datestr[4:])
-	date = datetime.date(year, month, day)
 
 	vcf_header = [
 	'##fileformat=VCFv4.2',
@@ -386,22 +389,22 @@ if __name__ == '__main__':
 	args = parser.parse_args()
 
 	# get table of all CNVs from DeCon output files.
-	CNV_table = get_CNV_table(args.rawdata, args.test_mode)
+	CNV_table, variantsfound = get_CNV_table(args.rawdata, args.test_mode)
 
 	# get list of sampleIDs from PED files
 	sampleID_list = get_sampleIDs(args.pedfile)
 
 	# get vcf dict format of all data
-	vcf_dict = get_vcf_dict(CNV_table, sampleID_list)
+	if variantsfound:
+		vcf_dict = get_vcf_dict(CNV_table, sampleID_list)
+	else:
+		vcf_dict = {}
 
 	# get export table
 	export_list = get_export_list(vcf_dict,sampleID_list)
 
-	# get runid information
-	runID = CNV_table.at[1,'runID']
-
 	# get hard-coded VCF header list
-	vcf_header = get_vcf_header(runID)
+	vcf_header = get_vcf_header()
 
 	# export information to file
 	with open(args.outfile,'w',newline='') as file:
